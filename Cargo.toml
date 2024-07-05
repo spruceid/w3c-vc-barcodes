@@ -1,0 +1,12 @@
+[package]
+name = "w3c-vc-barcodes"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iref = { version = "3.1.4", features = ["serde"] }
+lazy_static = "1.5.0"
+serde = { version = "1.0.203", features = ["derive"] }
+sha2 = "0.10.8"
+ssi = { git = "https://github.com/spruceid/ssi.git", branch = "improve-bitstring-status-list-types" }
+thiserror = "1.0.61"

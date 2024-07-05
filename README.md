@@ -1,0 +1,1 @@
+# Verifiable Credential Barcodes v0.7 implementation for Rust
