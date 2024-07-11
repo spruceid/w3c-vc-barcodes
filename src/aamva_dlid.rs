@@ -1,3 +1,6 @@
+/// AAMVA DL/ID Card Design Standard.
+///
+/// See: <https://www.aamva.org/assets/best-practices,-guides,-standards,-manuals,-whitepapers/aamva-dl-id-card-design-standard-(2020)>
 macro_rules! mandatory_data_elements {
 	($($(#[$meta:meta])* $id:ident : $tag:literal),*) => {
 		#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
