@@ -6,7 +6,7 @@ use ssi::security::{multibase, Multibase, MultibaseBuf};
 
 use crate::aamva_dlid;
 
-use super::OpticalBarcodeCredentialSubject;
+use super::{CitizenshipV2, OpticalBarcodeCredentialSubject};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -16,7 +16,9 @@ pub struct AamvaDriversLicenseScannableInformation {
     protected_component_index: EncodedProtectedComponentIndex,
 }
 
-unsafe impl OpticalBarcodeCredentialSubject for AamvaDriversLicenseScannableInformation {}
+unsafe impl OpticalBarcodeCredentialSubject for AamvaDriversLicenseScannableInformation {
+    type Context = CitizenshipV2;
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]

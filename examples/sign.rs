@@ -1,6 +1,7 @@
+use qrcode::{render::unicode, QrCode};
 use ssi::{
     claims::data_integrity::ProofOptions,
-    dids::{AnyDidMethod, DIDResolver, DIDJWK},
+    dids::{AnyDidMethod, DIDKey, DIDResolver},
     verification_methods::SingleSecretSigner,
     JWK,
 };
@@ -15,7 +16,7 @@ const OPTICAL_DATA: &[u8] = b"TEST_OPTICAL_DATA" as &[u8];
 async fn main() {
     let jwk = JWK::generate_p256();
 
-    let vm = DIDJWK::generate_url(&jwk);
+    let vm = DIDKey::generate_url(&jwk).unwrap();
     let options = ProofOptions::from_method(vm.into_iri().into());
 
     let params = SignatureParameters::new(
@@ -35,5 +36,13 @@ async fn main() {
     .unwrap();
 
     let bytes = encode_to_bytes(&vc).await;
-    eprintln!("{}", hex::encode(bytes))
+    eprintln!("payload ({} bytes): {}", bytes.len(), hex::encode(&bytes));
+
+    let qr_code = QrCode::new(MachineReadableZone::encode_data(&bytes)).unwrap();
+    let image = qr_code
+        .render::<unicode::Dense1x2>()
+        .dark_color(unicode::Dense1x2::Light)
+        .light_color(unicode::Dense1x2::Dark)
+        .build();
+    println!("{image}")
 }

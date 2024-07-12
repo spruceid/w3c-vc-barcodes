@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use iref::IriBuf;
+use iref::{Iri, IriBuf};
 use json_syntax::{Parse, Value};
 use lazy_static::lazy_static;
-use ssi::json_ld::RemoteDocument;
+use ssi::{claims::vc::syntax::RequiredContext, json_ld::RemoteDocument};
 use static_iref::iri;
 
 lazy_static! {
@@ -13,6 +13,10 @@ lazy_static! {
         map.insert(
             iri!("https://www.w3.org/ns/credentials/v2").to_owned(),
             load(include_str!("credentials_v2.jsonld")),
+        );
+        map.insert(
+            iri!("https://w3id.org/vdl/v2").to_owned(),
+            load(include_str!("vdl_v2.jsonld")),
         );
         map.insert(
             iri!("https://w3id.org/citizenship/v2").to_owned(),
@@ -25,4 +29,16 @@ lazy_static! {
 
 fn load(json: &str) -> RemoteDocument {
     RemoteDocument::new(None, None, Value::parse_str(json).unwrap().0)
+}
+
+pub struct VdlV2;
+
+impl RequiredContext for VdlV2 {
+    const CONTEXT_IRI: &'static Iri = iri!("https://w3id.org/vdl/v2");
+}
+
+pub struct CitizenshipV2;
+
+impl RequiredContext for CitizenshipV2 {
+    const CONTEXT_IRI: &'static Iri = iri!("https://w3id.org/citizenship/v2");
 }
