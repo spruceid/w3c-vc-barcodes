@@ -6,11 +6,16 @@ use ssi::{
     JWK,
 };
 use static_iref::uri;
-use w3c_vc_barcodes::optical_barcode_credential::{
-    encode_to_bytes, MachineReadableZone, SignatureParameters,
+use w3c_vc_barcodes::{
+    optical_barcode_credential::{encode_to_bytes, SignatureParameters},
+    MachineReadableZone, MRZ,
 };
 
-const OPTICAL_DATA: &[u8] = b"TEST_OPTICAL_DATA" as &[u8];
+const DATA: MRZ = [
+    *b"IAUTO0000007010SRC0000000701<<",
+    *b"8804192M2601058NOT<<<<<<<<<<<5",
+    *b"SMITH<<JOHN<<<<<<<<<<<<<<<<<<<",
+];
 
 #[async_std::main]
 async fn main() {
@@ -25,8 +30,8 @@ async fn main() {
         None,
     );
 
-    let vc = w3c_vc_barcodes::create_from_optical_data(
-        OPTICAL_DATA,
+    let vc = w3c_vc_barcodes::create(
+        &DATA,
         uri!("http://example.org/issuer").to_owned(),
         MachineReadableZone {},
         options,
@@ -38,7 +43,7 @@ async fn main() {
     let bytes = encode_to_bytes(&vc).await;
     eprintln!("payload ({} bytes): {}", bytes.len(), hex::encode(&bytes));
 
-    let qr_code = QrCode::new(MachineReadableZone::encode_data(&bytes)).unwrap();
+    let qr_code = QrCode::new(MachineReadableZone::encode_qr_code_payload(&bytes)).unwrap();
     let image = qr_code
         .render::<unicode::Dense1x2>()
         .dark_color(unicode::Dense1x2::Light)
