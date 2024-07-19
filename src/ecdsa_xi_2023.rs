@@ -12,12 +12,12 @@ use ssi::{
                 },
                 ConfigurationAlgorithm, ConfigurationError,
             },
-            suites::ecdsa_rdfc_2019::ES256OrES384,
             CryptosuiteStr, ProofConfiguration, ProofConfigurationRef, ProofOptions,
             StandardCryptographicSuite, Type, TypeRef, UnsupportedProofSuite,
         },
         JsonLdLoaderProvider,
     },
+    crypto::algorithm::ES256OrES384,
     json_ld::{Expandable, JsonLdNodeObject},
     rdf::{AnyLdEnvironment, LdEnvironment},
     verification_methods::{multikey, Multikey},
@@ -117,6 +117,7 @@ where
         context: &C,
         data: &T,
         proof_configuration: ProofConfigurationRef<'_, EcdsaXi2023<&'a [u8]>>,
+        _verification_method: &Multikey,
         transformation_options: ExtraInformation<'a>,
     ) -> Result<Self::Output, TransformationError> {
         let mut ld = LdEnvironment::default();

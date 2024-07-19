@@ -1,4 +1,4 @@
-use cbor_ld::{EncodeOptions, IdMap};
+use cbor_ld::{tables::RegistryEntry, CompressionMode, EncodeOptions};
 use ssi::claims::data_integrity::DataIntegrity;
 
 use crate::{
@@ -7,11 +7,9 @@ use crate::{
     OpticalBarcodeCredential,
 };
 
-use super::COMPRESSION_TABLE;
-
-fn encode_options() -> EncodeOptions {
+fn encode_options() -> EncodeOptions<'static> {
     EncodeOptions {
-        context_map: IdMap::new_derived(Some(&*COMPRESSION_TABLE)),
+        compression_mode: CompressionMode::Compressed(RegistryEntry::VcBarcodes),
         ..Default::default()
     }
 }

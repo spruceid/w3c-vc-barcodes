@@ -1,12 +1,11 @@
 use iref::UriBuf;
 use ssi::{
     claims::{
-        data_integrity::{
-            suites::ecdsa_rdfc_2019::ES256OrES384, CryptographicSuite, DataIntegrity, ProofOptions,
-        },
+        data_integrity::{CryptographicSuite, DataIntegrity, ProofOptions},
         vc::syntax::{IdOr, NonEmptyVec},
         JsonLdLoaderProvider, SignatureError,
     },
+    crypto::algorithm::ES256OrES384,
     status::bitstring_status_list::BitstringStatusListEntry,
     verification_methods::{MessageSigner, Multikey, Signer, VerificationMethodResolver},
 };
@@ -27,7 +26,7 @@ pub struct SignatureParameters<R, S> {
     pub status: Option<Status>,
 }
 
-impl<'a, R, S> SignatureParameters<R, S> {
+impl<R, S> SignatureParameters<R, S> {
     pub fn new(resolver: R, signer: S, status: Option<Status>) -> Self {
         Self {
             resolver,
@@ -40,8 +39,8 @@ impl<'a, R, S> SignatureParameters<R, S> {
 /// Creates a new optical barcode credential.
 ///
 /// See: <https://w3c-ccg.github.io/vc-barcodes/#credential-creation>
-pub async fn create<'a, T, R, S>(
-    optical_data: &'a [u8],
+pub async fn create<T, R, S>(
+    extra_information: &T::ExtraInformation,
     issuer: UriBuf,
     credential_subject: T,
     options: ProofOptions<ssi::verification_methods::Multikey, ()>,
@@ -53,9 +52,64 @@ where
     S: Signer<Multikey>,
     S::MessageSigner: MessageSigner<ES256OrES384>,
 {
-    let mut unsigned =
+    let optical_data = credential_subject.create_optical_data(extra_information);
+    create_from_optical_data(&optical_data, issuer, credential_subject, options, params).await
+}
+
+/// Creates a new optical barcode credential.
+///
+/// See: <https://w3c-ccg.github.io/vc-barcodes/#credential-creation>
+pub async fn create_from_optical_data<T, R, S>(
+    optical_data: &[u8],
+    issuer: UriBuf,
+    credential_subject: T,
+    options: ProofOptions<ssi::verification_methods::Multikey, ()>,
+    params: SignatureParameters<R, S>,
+) -> Result<DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>, SignatureError>
+where
+    T: OpticalBarcodeCredentialSubject,
+    R: VerificationMethodResolver<Method = Multikey>,
+    S: Signer<Multikey>,
+    S::MessageSigner: MessageSigner<ES256OrES384>,
+{
+    let unsigned =
         OpticalBarcodeCredential::new(None, IdOr::Id(issuer), NonEmptyVec::new(credential_subject));
 
+    sign_from_optical_data(unsigned, optical_data, options, params).await
+}
+
+pub async fn sign<'a, T, R, S>(
+    unsigned: OpticalBarcodeCredential<T>,
+    extra_information: &T::ExtraInformation,
+    options: ProofOptions<ssi::verification_methods::Multikey, ()>,
+    params: SignatureParameters<R, S>,
+) -> Result<DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>, SignatureError>
+where
+    T: OpticalBarcodeCredentialSubject,
+    R: VerificationMethodResolver<Method = Multikey>,
+    S: Signer<Multikey>,
+    S::MessageSigner: MessageSigner<ES256OrES384>,
+{
+    let optical_data = unsigned
+        .credential_subjects
+        .first()
+        .unwrap()
+        .create_optical_data(extra_information);
+    sign_from_optical_data(unsigned, &optical_data, options, params).await
+}
+
+pub async fn sign_from_optical_data<T, R, S>(
+    mut unsigned: OpticalBarcodeCredential<T>,
+    optical_data: &[u8],
+    options: ProofOptions<ssi::verification_methods::Multikey, ()>,
+    params: SignatureParameters<R, S>,
+) -> Result<DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>, SignatureError>
+where
+    T: OpticalBarcodeCredentialSubject,
+    R: VerificationMethodResolver<Method = Multikey>,
+    S: Signer<Multikey>,
+    S::MessageSigner: MessageSigner<ES256OrES384>,
+{
     if let Some(status_list) = params.status {
         unsigned.credential_status.push(
             TerseBitstringStatusListEntry::from_bitstring_status_list_entry(
@@ -66,7 +120,7 @@ where
         )
     }
 
-    let vc = EcdsaXi2023::<&'a [u8]>::default()
+    let vc = EcdsaXi2023::<&[u8]>::default()
         .sign_with(
             XiSignatureEnvironment(&*CONTEXT_LOADER),
             unsigned,

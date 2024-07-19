@@ -1,4 +1,3 @@
-use cbor_ld::{DecodeOptions, IdMap};
 use ssi::claims::data_integrity::DataIntegrity;
 
 use crate::{
@@ -7,22 +6,13 @@ use crate::{
     OpticalBarcodeCredential,
 };
 
-use super::COMPRESSION_TABLE;
-
-fn decode_options() -> DecodeOptions {
-    DecodeOptions {
-        context_map: IdMap::new_derived(Some(&*COMPRESSION_TABLE)),
-        ..Default::default()
-    }
-}
-
 pub async fn decode<T>(
     cbor: &cbor_ld::CborValue,
 ) -> Result<DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>, DecodeError>
 where
     T: OpticalBarcodeCredentialSubject,
 {
-    let json = cbor_ld::decode_with(cbor, &*CONTEXT_LOADER, decode_options()).await?;
+    let json = cbor_ld::decode(cbor, &*CONTEXT_LOADER).await?;
     json_syntax::from_value(json).map_err(Into::into)
 }
 
@@ -32,7 +22,7 @@ pub async fn decode_from_bytes<T>(
 where
     T: OpticalBarcodeCredentialSubject,
 {
-    let json = cbor_ld::decode_from_bytes_with(bytes, &*CONTEXT_LOADER, decode_options()).await?;
+    let json = cbor_ld::decode_from_bytes(bytes, &*CONTEXT_LOADER).await?;
     json_syntax::from_value(json).map_err(Into::into)
 }
 

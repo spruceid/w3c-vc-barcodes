@@ -25,7 +25,7 @@ async fn main() {
         None,
     );
 
-    let vc = w3c_vc_barcodes::create(
+    let vc = w3c_vc_barcodes::create_from_optical_data(
         OPTICAL_DATA,
         uri!("http://example.org/issuer").to_owned(),
         MachineReadableZone {},

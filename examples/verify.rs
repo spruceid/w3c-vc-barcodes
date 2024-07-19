@@ -1,7 +1,6 @@
 use ssi::dids::{AnyDidMethod, DIDResolver};
-use w3c_vc_barcodes::{
-    optical_barcode_credential::{decode_from_bytes, MachineReadableZone, VerificationParameters},
-    verify,
+use w3c_vc_barcodes::optical_barcode_credential::{
+    decode_from_bytes, verify_from_optical_data, MachineReadableZone, VerificationParameters,
 };
 
 const OPTICAL_DATA: &[u8] = b"TEST_OPTICAL_DATA" as &[u8];
@@ -16,7 +15,9 @@ async fn main() {
 
     let params = VerificationParameters::new(AnyDidMethod::default().into_vm_resolver());
 
-    let result = verify(&vc, OPTICAL_DATA, params).await.unwrap();
+    let result = verify_from_optical_data(&vc, OPTICAL_DATA, params)
+        .await
+        .unwrap();
 
     assert!(result.is_ok());
 }

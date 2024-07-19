@@ -1,15 +1,15 @@
-use iref::Uri;
 use ssi::{
     claims::{
         data_integrity::DataIntegrity, DateTimeProvider, JsonLdLoaderProvider,
         ProofValidationError, ResolverProvider, ResourceProvider, Verification,
     },
-    status::bitstring_status_list::{BitstringStatusListCredential, StatusPurpose},
+    status::bitstring_status_list::StatusPurpose,
     verification_methods::{Multikey, VerificationMethodResolver},
 };
 
 use crate::{
     ecdsa_xi_2023::{EcdsaXi2023, ExtraInformation},
+    terse_bitstring_status_list_entry::{NoTerseStatusListProvider, TerseStatusListProvider},
     DateTime, Utc,
 };
 
@@ -19,9 +19,9 @@ use super::{
 };
 
 /// Optical barcode credential verification parameters.
-pub struct VerificationParameters<R, C = NoStatusMapProvider> {
+pub struct VerificationParameters<R, C = NoTerseStatusListProvider> {
     pub resolver: R,
-    pub status: Option<StatusVerification<C>>,
+    pub status_list_client: Option<C>,
     pub date_time: Option<DateTime<Utc>>,
 }
 
@@ -29,23 +29,41 @@ impl<R> VerificationParameters<R> {
     pub fn new(resolver: R) -> Self {
         Self {
             resolver,
-            status: None,
+            status_list_client: None,
             date_time: None,
         }
     }
 }
 
 impl<R, C> VerificationParameters<R, C> {
-    pub fn new_with(resolver: R, status: StatusVerification<C>) -> Self {
+    pub fn new_with(resolver: R, status_list_client: C) -> Self {
         Self {
             resolver,
-            status: Some(status),
+            status_list_client: Some(status_list_client),
             date_time: None,
         }
     }
 }
 
-pub async fn verify<'a, 'b, T, R, C>(
+pub async fn verify<'a, T, R, C>(
+    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
+    extra_information: &T::ExtraInformation,
+    params: VerificationParameters<R, C>,
+) -> Result<Verification, ProofValidationError>
+where
+    T: OpticalBarcodeCredentialSubject,
+    R: VerificationMethodResolver<Method = Multikey>,
+    C: TerseStatusListProvider,
+{
+    let optical_data = vc
+        .credential_subjects
+        .first()
+        .unwrap()
+        .create_optical_data(extra_information);
+    verify_from_optical_data(vc, &optical_data, params).await
+}
+
+pub async fn verify_from_optical_data<'a, 'b, T, R, C>(
     vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>>,
     optical_data: &'a [u8],
     params: VerificationParameters<R, C>,
@@ -53,31 +71,28 @@ pub async fn verify<'a, 'b, T, R, C>(
 where
     T: OpticalBarcodeCredentialSubject,
     R: VerificationMethodResolver<Method = Multikey>,
-    C: ssi::status::client::TypedStatusMapProvider<Uri, BitstringStatusListCredential>,
+    C: TerseStatusListProvider,
 {
     let vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>> =
         change_xi_lifetime_ref(vc);
 
     for terse_entry in &vc.credential_status {
-        let status_params = params
-            .status
+        let client = params
+            .status_list_client
             .as_ref()
             .ok_or_else(|| ProofValidationError::other("no status list parameters"))?;
 
-        let entry = terse_entry
-            .to_bitstring_status_list_entry(status_params.list_len, status_params.status_purpose);
+        // let entry = terse_entry
+        //     .to_bitstring_status_list_entry(status_params.list_len, status_params.status_purpose);
 
-        let status_list = status_params
-            .client
-            .get_typed(&entry.status_list_credential)
+        let (status_purpose, status) = client
+            .get_status(terse_entry)
             .await
             .map_err(ProofValidationError::other)?;
 
-        let status = status_list
-            .get(entry.status_list_index)
-            .ok_or_else(|| ProofValidationError::other("missing status"))?;
+        let status = status.ok_or_else(|| ProofValidationError::other("missing status"))?;
 
-        match status_params.status_purpose {
+        match status_purpose {
             StatusPurpose::Revocation => {
                 if status != 0 {
                     return Err(ProofValidationError::other("revoked"));
@@ -103,12 +118,6 @@ where
     );
 
     vc.verify(params).await
-}
-
-pub struct StatusVerification<C> {
-    list_len: usize,
-    status_purpose: StatusPurpose,
-    client: C,
 }
 
 struct XiVerificationParameters<'a, P> {
@@ -152,25 +161,5 @@ impl<'a, P: JsonLdLoaderProvider> JsonLdLoaderProvider for XiVerificationParamet
 impl<'a, P> ResourceProvider<ExtraInformation<'a>> for XiVerificationParameters<'a, P> {
     fn get_resource(&self) -> &ExtraInformation<'a> {
         &self.extra_information
-    }
-}
-
-pub struct NoStatusMapProvider;
-
-impl ssi::status::client::TypedStatusMapProvider<Uri, BitstringStatusListCredential>
-    for NoStatusMapProvider
-{
-    async fn get_typed(
-        &self,
-        _id: &Uri,
-    ) -> Result<
-        ssi::status::client::MaybeCached<
-            <BitstringStatusListCredential as ssi::status::EncodedStatusMap>::Decoded,
-        >,
-        ssi::status::client::ProviderError,
-    > {
-        Err(ssi::status::client::ProviderError::Internal(
-            "no status map provider".to_owned(),
-        ))
     }
 }

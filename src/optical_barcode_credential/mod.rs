@@ -1,13 +1,10 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use ssi::{
-    claims::{
-        data_integrity::DataIntegrity,
-        vc::{
-            syntax::{IdOr, IdentifiedObject, RequiredContext, RequiredType},
-            v2::SpecializedJsonCredential,
-        },
+use serde::{de::DeserializeOwned, Serialize};
+use ssi::claims::{
+    data_integrity::DataIntegrity,
+    vc::{
+        syntax::{IdOr, IdentifiedObject, RequiredType},
+        v2::SpecializedJsonCredential,
     },
-    security::multibase,
 };
 
 use crate::{
@@ -23,15 +20,12 @@ pub use verification::*;
 mod compression;
 pub use compression::*;
 
-mod aamva;
-pub use aamva::*;
-
 /// Optical barcode credential.
 ///
 /// See: <https://w3c-ccg.github.io/vc-barcodes/#opticalbarcodecredential>
 pub type OpticalBarcodeCredential<T> = SpecializedJsonCredential<
     T,
-    <T as OpticalBarcodeCredentialSubject>::Context,
+    VcBarcodesV1,
     OpticalBarcodeCredentialType,
     IdOr<IdentifiedObject>,
     TerseBitstringStatusListEntry,
@@ -51,21 +45,10 @@ impl RequiredType for OpticalBarcodeCredentialType {
 ///   - [`AamvaDriversLicenseScannableInformation`], or
 ///   - [`MachineReadableZone`].
 pub unsafe trait OpticalBarcodeCredentialSubject: Serialize + DeserializeOwned {
-    type Context: RequiredContext;
-}
+    // type Context: RequiredContext;
+    type ExtraInformation: ?Sized;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub struct MachineReadableZone {}
-
-impl MachineReadableZone {
-    pub fn encode_data(bytes: &[u8]) -> String {
-        format!("VC1-{}", multibase::Base::Base32Upper.encode(bytes))
-    }
-}
-
-unsafe impl OpticalBarcodeCredentialSubject for MachineReadableZone {
-    type Context = VdlV2;
+    fn create_optical_data(&self, xi: &Self::ExtraInformation) -> [u8; 32];
 }
 
 pub fn change_xi_lifetime<'a, 'b, T: OpticalBarcodeCredentialSubject>(

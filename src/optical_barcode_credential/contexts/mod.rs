@@ -15,6 +15,14 @@ lazy_static! {
             load(include_str!("credentials_v2.jsonld")),
         );
         map.insert(
+            iri!("https://w3id.org/vc-barcodes/v1").to_owned(),
+            load(include_str!("vc-barcodes_v1.jsonld")),
+        );
+        map.insert(
+            iri!("https://w3id.org/utopia/v2").to_owned(),
+            load(include_str!("utopia_v2.jsonld")),
+        );
+        map.insert(
             iri!("https://w3id.org/vdl/v2").to_owned(),
             load(include_str!("vdl_v2.jsonld")),
         );
@@ -41,4 +49,10 @@ pub struct CitizenshipV2;
 
 impl RequiredContext for CitizenshipV2 {
     const CONTEXT_IRI: &'static Iri = iri!("https://w3id.org/citizenship/v2");
+}
+
+pub struct VcBarcodesV1;
+
+impl RequiredContext for VcBarcodesV1 {
+    const CONTEXT_IRI: &'static Iri = iri!("https://w3id.org/vc-barcodes/v1");
 }

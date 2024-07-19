@@ -4,10 +4,15 @@
 //! [vc-barcodes]: <https://w3c-ccg.github.io/vc-barcodes/>
 pub use ssi::claims::chrono::{DateTime, Utc};
 
-pub mod aamva_dlid;
+pub mod aamva;
 pub mod ecdsa_xi_2023;
+pub mod mrz;
 pub mod optical_barcode_credential;
 pub mod terse_bitstring_status_list_entry;
 
+pub use aamva::AamvaDriversLicenseScannableInformation;
 pub use ecdsa_xi_2023::EcdsaXi2023;
-pub use optical_barcode_credential::{create, verify, OpticalBarcodeCredential};
+pub use mrz::{MachineReadableZone, MRZ};
+pub use optical_barcode_credential::{
+    create, create_from_optical_data, verify, OpticalBarcodeCredential,
+};

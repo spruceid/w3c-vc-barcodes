@@ -34,69 +34,69 @@ impl MandatoryDataElement {
 }
 
 mandatory_data_elements! {
-    /// Jurisdiction-specific vehicle class.
+    /// Jurisdiction-specific vehicle class (DCA).
     VehicleClass: b"DCA",
 
-    /// Jurisdiction-specific restriction codes.
+    /// Jurisdiction-specific restriction codes (DCB).
     RestrictionCodes: b"DCB",
 
-    /// Jurisdiction-specific endorsement codes.
+    /// Jurisdiction-specific endorsement codes (DCD).
     EndorsementCodes: b"DCD",
 
-    /// Document Expiration Date.
+    /// Document Expiration Date (DBA).
     DocumentExpirationDate: b"DBA",
 
-    /// Customer Family Name.
+    /// Customer Family Name (DCS).
     CustomerFamilyName: b"DCS",
 
-    /// Customer First Name.
+    /// Customer First Name (DAC).
     CustomerFirstName: b"DAC",
 
-    /// Customer Middle Name(s).
+    /// Customer Middle Name(s) (DAD).
     CustomerMiddleName: b"DAD",
 
-    /// Document Issue Date.
+    /// Document Issue Date (DBD).
     DocumentIssueDate: b"DBD",
 
-    /// Date of Birth.
+    /// Date of Birth (DBB).
     DateOfBirth: b"DBB",
 
-    /// Physical Description – Sex.
+    /// Physical Description – Sex (DBC).
     PhysicalDescriptionSex: b"DBC",
 
-    /// Physical Description – Eye Color.
+    /// Physical Description – Eye Color (DAY).
     PhysicalDescriptionEyeColor: b"DAY",
 
-    /// Physical Description – Height.
+    /// Physical Description – Height (DAU).
     PhysicalDescriptionHeight: b"DAU",
 
-    /// Address – Street 1.
+    /// Address – Street 1 (DAG).
     AddressStreet1: b"DAG",
 
-    /// Address – City.
+    /// Address – City (DAI).
     AddressCity: b"DAI",
 
-    /// Address – Jurisdiction Code.
+    /// Address – Jurisdiction Code (DAJ).
     AddressJurisdictionCode: b"DAJ",
 
-    /// Address – Postal Code.
+    /// Address – Postal Code (DAK).
     AddressPostalCode: b"DAK",
 
-    /// Customer ID Number.
+    /// Customer ID Number (DAQ).
     CustomerIdNumber: b"DAQ",
 
-    /// Document Discriminator.
+    /// Document Discriminator (DCF).
     DocumentDiscriminator: b"DCF",
 
-    /// Country Identification.
+    /// Country Identification (DCG).
     CountryIdentification: b"DCG",
 
-    /// Family name truncation.
+    /// Family name truncation (DDE).
     FamilyNameTruncation: b"DDE",
 
-    /// First name truncation.
+    /// First name truncation (DDF).
     FirstNameTruncation: b"DDF",
 
-    /// Middle name truncation.
+    /// Middle name truncation (DDG).
     MiddleNameTruncation: b"DDG"
 }

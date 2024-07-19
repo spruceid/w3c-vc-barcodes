@@ -1,0 +1,6 @@
+{
+	"type": "DataIntegrityProof",
+	"cryptosuite": "ecdsa-xi-2023",
+	"verificationMethod": "did:key:zDnaeWjKfs1ob9QcgasjYSPEMkwq31hmvSAWPVAgnrt1e9GKj#zDnaeWjKfs1ob9QcgasjYSPEMkwq31hmvSAWPVAgnrt1e9GKj",
+	"proofPurpose": "assertionMethod"
+}
