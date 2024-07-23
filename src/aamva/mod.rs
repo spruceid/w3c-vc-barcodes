@@ -1,14 +1,22 @@
-use std::{borrow::Cow, collections::HashMap};
-
+use dlid::{
+    pdf_417::{read_array, RecordEntry},
+    DlMandatoryElement, DlMandatoryElements,
+};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use ssi::security::{multibase, Multibase, MultibaseBuf};
+use ssi::security::{
+    multibase::{self, Base},
+    Multibase, MultibaseBuf,
+};
+use std::{collections::HashMap, io};
 
 pub mod dlid;
-use dlid::MandatoryDataElement;
 
-use crate::optical_barcode_credential::OpticalBarcodeCredentialSubject;
+use crate::optical_barcode_credential::{
+    decode_from_bytes, encode_to_bytes, DecodeError, OpticalBarcodeCredentialSubject,
+    VerifiableOpticalBarcodeCredential,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -20,11 +28,11 @@ pub struct AamvaDriversLicenseScannableInformation {
 
 unsafe impl OpticalBarcodeCredentialSubject for AamvaDriversLicenseScannableInformation {
     // type Context = CitizenshipV2;
-    type ExtraInformation = HashMap<MandatoryDataElement, String>;
+    type ExtraInformation = DlMandatoryElements;
 
     fn create_optical_data(&self, xi: &Self::ExtraInformation) -> [u8; 32] {
         let index = self.protected_component_index.decode().unwrap();
-        index.to_optical_data_bytes(|field| Cow::Borrowed(xi.get(&field).unwrap()))
+        index.to_optical_data_bytes(xi)
     }
 }
 
@@ -72,7 +80,7 @@ impl ProtectedComponentIndex {
         1u32 << (23 - i)
     }
 
-    fn mask_of(e: MandatoryDataElement) -> u32 {
+    fn mask_of(e: DlMandatoryElement) -> u32 {
         Self::mask_of_index(*PROTECTED_COMPONENTS_INDEXES.get(&e).unwrap())
     }
 
@@ -80,19 +88,19 @@ impl ProtectedComponentIndex {
         self.0 & Self::mask_of_index(i) != 0
     }
 
-    pub fn contains(&self, e: MandatoryDataElement) -> bool {
+    pub fn contains(&self, e: DlMandatoryElement) -> bool {
         self.0 & Self::mask_of(e) != 0
     }
 
-    pub fn insert(&mut self, e: MandatoryDataElement) {
+    pub fn insert(&mut self, e: DlMandatoryElement) {
         self.0 |= Self::mask_of(e)
     }
 
-    pub fn remove(&mut self, e: MandatoryDataElement) {
+    pub fn remove(&mut self, e: DlMandatoryElement) {
         self.0 &= !Self::mask_of(e)
     }
 
-    pub fn iter(&self) -> impl '_ + Iterator<Item = MandatoryDataElement> {
+    pub fn iter(&self) -> impl '_ + Iterator<Item = DlMandatoryElement> {
         PROTECTED_COMPONENTS_LIST
             .iter()
             .enumerate()
@@ -105,30 +113,23 @@ impl ProtectedComponentIndex {
             })
     }
 
-    pub fn to_optical_data_bytes<'a>(
-        &self,
-        fetch_data: impl Fn(MandatoryDataElement) -> Cow<'a, str>,
-    ) -> [u8; 32] {
+    pub fn to_optical_data_bytes<'a>(&self, elements: &DlMandatoryElements) -> [u8; 32] {
         let mut data_to_canonicalize = Vec::new();
 
         for field in self.iter() {
-            let data = fetch_data(field);
+            let data = elements.get(field);
 
-            let mut entry = String::with_capacity(3 + data.len() + 1);
-            entry.push_str(field.string_id());
-            entry.push_str(&data);
-            entry.push('\n');
+            let mut entry = Vec::with_capacity(3 + data.len() + 1);
+            entry.extend(field.id());
+            entry.extend(data);
+            entry.push(b'\n');
 
             data_to_canonicalize.push(entry);
         }
 
         data_to_canonicalize.sort_unstable();
-
-        let canonical_data = data_to_canonicalize.join("");
-
-        eprintln!("canonical: {canonical_data:?}");
-
-        Sha256::digest(canonical_data.as_bytes()).into()
+        let canonical_data = data_to_canonicalize.as_slice().join([].as_slice());
+        Sha256::digest(canonical_data).into()
     }
 }
 
@@ -142,12 +143,12 @@ pub enum InvalidProtectedComponentIndex {
 }
 
 lazy_static! {
-    pub static ref PROTECTED_COMPONENTS_LIST: [MandatoryDataElement; 22] = {
-        let mut list = MandatoryDataElement::LIST;
-        list.sort_by_key(MandatoryDataElement::id);
+    pub static ref PROTECTED_COMPONENTS_LIST: [DlMandatoryElement; 22] = {
+        let mut list = DlMandatoryElement::LIST;
+        list.sort_by_key(DlMandatoryElement::id);
         list
     };
-    pub static ref PROTECTED_COMPONENTS_INDEXES: HashMap<MandatoryDataElement, usize> = {
+    pub static ref PROTECTED_COMPONENTS_INDEXES: HashMap<DlMandatoryElement, usize> = {
         let mut map = HashMap::new();
 
         for (i, e) in PROTECTED_COMPONENTS_LIST.iter().enumerate() {
@@ -160,36 +161,20 @@ lazy_static! {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
+    use lazy_static::lazy_static;
 
-    use crate::aamva::{dlid::MandatoryDataElement, PROTECTED_COMPONENTS_INDEXES};
+    use crate::aamva::dlid::DlMandatoryElement;
 
-    use super::ProtectedComponentIndex;
+    use super::{dlid::DlSubfile, ProtectedComponentIndex};
 
-    const MANDATORY_AAMVA_FIELDS: [&'static str; 22] = [
-        "JOHN",
-        "NONE",
-        "123 MAIN ST",
-        "ANYVILLE",
-        "UTO",
-        "F87P20000",
-        "F987654321",
-        "069 IN",
-        "BRO",
-        "04192030",
-        "04191988",
-        "1",
-        "01012024",
-        "C",
-        "NONE",
-        "NONE",
-        "UTODOCDISCRIM",
-        "UTO",
-        "SMITH",
-        "N",
-        "N",
-        "N",
-    ];
+    const DL_SUBFILE_BYTES: &str = "DLDACJOHN\nDADNONE\nDAG123 MAIN ST\nDAIANYVILLE\nDAJUTO\nDAKF87P20000\nDAQF987654321\nDAU069 IN\nDAYBRO\nDBA04192030\nDBB04191988\nDBC1\nDBD01012024\nDCAC\nDCBNONE\nDCDNONE\nDCFUTODOCDISCRIM\nDCGUTO\nDCSSMITH\nDDEN\nDDFN\nDDGN\r";
+
+    lazy_static! {
+        static ref DL_SUBFILE: DlSubfile = {
+            use crate::aamva::dlid::pdf_417::DecodeSubfile;
+            DlSubfile::decode_subfile_from_bytes(DL_SUBFILE_BYTES.as_bytes()).unwrap()
+        };
+    }
 
     /// <https://w3c-ccg.github.io/vc-barcodes/#creating-opticaldatabytes>
     #[test]
@@ -200,14 +185,12 @@ mod tests {
         ];
 
         let mut index = ProtectedComponentIndex::new();
-        index.insert(MandatoryDataElement::CustomerFirstName);
-        index.insert(MandatoryDataElement::CustomerFamilyName);
-        index.insert(MandatoryDataElement::CustomerIdNumber);
+        index.insert(DlMandatoryElement::CustomerFirstName);
+        index.insert(DlMandatoryElement::CustomerFamilyName);
+        index.insert(DlMandatoryElement::CustomerIdNumber);
         assert_eq!(index.into_u32(), 0b100000100000000000100000);
 
-        let bytes = index.to_optical_data_bytes(|field| {
-            Cow::Borrowed(MANDATORY_AAMVA_FIELDS[PROTECTED_COMPONENTS_INDEXES[&field]])
-        });
+        let bytes = index.to_optical_data_bytes(&DL_SUBFILE.mandatory);
 
         assert_eq!(bytes, expected)
     }
@@ -215,11 +198,73 @@ mod tests {
     #[test]
     fn compress_protected_component_index() {
         let mut index = ProtectedComponentIndex::new();
-        index.insert(MandatoryDataElement::CustomerFirstName);
-        index.insert(MandatoryDataElement::CustomerFamilyName);
-        index.insert(MandatoryDataElement::CustomerIdNumber);
+        index.insert(DlMandatoryElement::CustomerFirstName);
+        index.insert(DlMandatoryElement::CustomerFamilyName);
+        index.insert(DlMandatoryElement::CustomerIdNumber);
         let encoded = index.encode();
 
         assert_eq!(encoded.as_str(), "uggAg")
+    }
+}
+
+pub struct ZZSubfile {
+    pub zza: String,
+}
+
+impl ZZSubfile {
+    pub async fn encode_credential(
+        vc: &VerifiableOpticalBarcodeCredential<AamvaDriversLicenseScannableInformation>,
+    ) -> Self {
+        Self {
+            zza: Base::Base64UrlPad.encode(encode_to_bytes(vc).await),
+        }
+    }
+
+    pub async fn decode_credential(
+        &self,
+    ) -> Result<
+        VerifiableOpticalBarcodeCredential<AamvaDriversLicenseScannableInformation>,
+        ZZDecodeError,
+    > {
+        let bytes = Base::Base64UrlPad.decode(&self.zza)?;
+        decode_from_bytes::<AamvaDriversLicenseScannableInformation>(&bytes)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ZZDecodeError {
+    #[error(transparent)]
+    Base64(#[from] multibase::Error),
+
+    #[error(transparent)]
+    CborLd(#[from] DecodeError),
+}
+
+impl dlid::pdf_417::DecodeSubfile for ZZSubfile {
+    fn decode_subfile(reader: &mut impl io::BufRead) -> io::Result<Self> {
+        if read_array(reader)? != *b"ZZ" {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+
+        let (entry, last) = RecordEntry::decode(reader)?;
+
+        if !last || entry.field != *b"ZZA" {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+
+        Ok(Self {
+            zza: String::from_utf8(entry.value).map_err(|_| io::ErrorKind::InvalidData)?,
+        })
+    }
+}
+
+impl From<ZZSubfile> for dlid::pdf_417::Subfile {
+    fn from(value: ZZSubfile) -> Self {
+        let mut data = Vec::new();
+        let mut cursor = io::Cursor::new(&mut data);
+        RecordEntry::encode_ref(&mut cursor, b"ZZA", value.zza.as_bytes(), true).unwrap();
+        Self::new(*b"ZZ", data)
     }
 }

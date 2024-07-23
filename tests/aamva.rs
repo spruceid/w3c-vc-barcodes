@@ -1,64 +1,38 @@
-mod common;
-use std::collections::HashMap;
-
-use common::*;
 use json_syntax::Print;
+use lazy_static::lazy_static;
 use ssi::{
     dids::{AnyDidMethod, DIDResolver},
     status::bitstring_status_list::StatusPurpose,
     verification_methods::SingleSecretSigner,
     JWK,
 };
+use std::io::Cursor;
 use w3c_vc_barcodes::{
     aamva::{
-        dlid::MandatoryDataElement, AamvaDriversLicenseScannableInformation,
-        PROTECTED_COMPONENTS_LIST,
+        dlid::{pdf_417, DlSubfile},
+        AamvaDriversLicenseScannableInformation, ZZSubfile,
     },
     optical_barcode_credential::{self, SignatureParameters, VerificationParameters},
     terse_bitstring_status_list_entry::{ConstTerseStatusListProvider, StatusListInfo},
     verify,
 };
 
-const MANDATORY_AAMVA_FIELDS: [&'static str; 22] = [
-    "JOHN",
-    "NONE",
-    "123 MAIN ST",
-    "ANYVILLE",
-    "UTO",
-    "F87P20000",
-    "F987654321",
-    "069 IN",
-    "BRO",
-    "04192030",
-    "04191988",
-    "1",
-    "01012024",
-    "C",
-    "NONE",
-    "NONE",
-    "UTODOCDISCRIM",
-    "UTO",
-    "SMITH",
-    "N",
-    "N",
-    "N",
-];
+mod common;
+use common::*;
 
-fn create_extra_information() -> HashMap<MandatoryDataElement, String> {
-    let mut fields = HashMap::new();
+const DL_SUBFILE_BYTES: &str = "DLDACJOHN\nDADNONE\nDAG123 MAIN ST\nDAIANYVILLE\nDAJUTO\nDAKF87P20000  \nDAQF987654321\nDAU069 IN\nDAYBRO\nDBA04192030\nDBB04191988\nDBC1\nDBD01012024\nDCAC\nDCBNONE\nDCDNONE\nDCFUTODOCDISCRIM\nDCGUTO\nDCSSMITH\nDDEN\nDDFN\nDDGN\nDAW158\nDCK1234567890\nDDAN\r";
 
-    for (i, value) in MANDATORY_AAMVA_FIELDS.into_iter().enumerate() {
-        fields.insert(PROTECTED_COMPONENTS_LIST[i], value.to_owned());
-    }
-
-    fields
+lazy_static! {
+    static ref DL_SUBFILE: DlSubfile = {
+        use pdf_417::DecodeSubfile;
+        DlSubfile::decode_subfile_from_bytes(DL_SUBFILE_BYTES.as_bytes()).unwrap()
+    };
 }
 
 #[async_std::test]
 async fn aamva_sign() {
     let input =
         load_unsigned::<AamvaDriversLicenseScannableInformation>("tests/aamva/unsecured.jsonld");
-    let fields = create_extra_information();
 
     let options = load_proof_configuration("tests/aamva/configuration.jsonld").into_options();
 
@@ -70,7 +44,7 @@ async fn aamva_sign() {
         None,
     );
 
-    optical_barcode_credential::sign(input, &fields, options, params)
+    optical_barcode_credential::sign(input, &DL_SUBFILE.mandatory, options, params)
         .await
         .unwrap();
 }
@@ -78,7 +52,6 @@ async fn aamva_sign() {
 #[async_std::test]
 async fn aamva_verify() {
     let vc = load_signed::<AamvaDriversLicenseScannableInformation>("tests/aamva/secured.jsonld");
-    let fields = create_extra_information();
 
     let status_list_client = ConstTerseStatusListProvider::new(
         StatusLists,
@@ -90,7 +63,7 @@ async fn aamva_verify() {
         status_list_client,
     );
 
-    let result = verify(&vc, &fields, params).await.unwrap();
+    let result = verify(&vc, &DL_SUBFILE.mandatory, params).await.unwrap();
     assert_eq!(result, Ok(()))
 }
 
@@ -124,4 +97,42 @@ async fn aamva_decompress() {
         eprintln!("output: {}", output.pretty_print());
         panic!("invalid decompression")
     }
+}
+
+const PDF417_PAYLOAD: &str = "@\n\x1e\rANSI 000000090002DL00410234ZZ02750202DLDAQF987654321\nDCSSMITH\nDDEN\nDACJOHN\nDDFN\nDADNONE\nDDGN\nDCAC\nDCBNONE\nDCDNONE\nDBD01012024\nDBB04191988\nDBA04192030\nDBC1\nDAU069 IN\nDAYBRO\nDAG123 MAIN ST\nDAIANYVILLE\nDAJUTO\nDAKF87P20000  \nDCFUTODOCDISCRIM\nDCGUTO\nDAW158\nDCK1234567890\nDDAN\rZZZZA2QZkpgGDGYAAGYABGYACGJ2CGHYYpBi4oxicGKYYzhiyGNAa5ZIggRi6ohicGKAYqER1ggAgGL4YqhjApRicGGwY1gQY4BjmGOJYQXq3wuVrSeLM5iGEziaBjhWosXMWRAG107uT_9bSteuPasCXFQKuPdSdF-xmUoFkA0yRJoW4ERvATNyewT263ZHMGOQYrA==\r";
+
+#[async_std::test]
+async fn aamva_pdf417_payload_decode() {
+    let mut cursor = Cursor::new(PDF417_PAYLOAD);
+    let mut file = pdf_417::File::new(&mut cursor).unwrap();
+    let dl: DlSubfile = file.read_subfile(b"DL").unwrap().unwrap();
+    let zz: ZZSubfile = file.read_subfile(b"ZZ").unwrap().unwrap();
+    let vc = zz.decode_credential().await.unwrap();
+
+    let status_list_client = ConstTerseStatusListProvider::new(
+        StatusLists,
+        StatusListInfo::new(1000, StatusPurpose::Revocation),
+    );
+
+    let params = VerificationParameters::new_with(
+        AnyDidMethod::default().into_vm_resolver(),
+        status_list_client,
+    );
+
+    let result = verify(&vc, &dl.mandatory, params).await.unwrap();
+    assert_eq!(result, Ok(()))
+}
+
+#[async_std::test]
+async fn aamva_pdf417_payload_encode() {
+    let vc = load_signed::<AamvaDriversLicenseScannableInformation>("tests/aamva/secured.jsonld");
+
+    let mut file = pdf_417::FileBuilder::new(0, 9, 0);
+    file.push(DL_SUBFILE.clone());
+    file.push(ZZSubfile::encode_credential(&vc).await);
+    let bytes = file.into_bytes();
+
+    eprintln!("result: {:?}", std::str::from_utf8(&bytes).unwrap());
+
+    assert_eq!(bytes, PDF417_PAYLOAD.as_bytes())
 }

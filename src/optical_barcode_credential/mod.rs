@@ -31,6 +31,9 @@ pub type OpticalBarcodeCredential<T> = SpecializedJsonCredential<
     TerseBitstringStatusListEntry,
 >;
 
+pub type VerifiableOpticalBarcodeCredential<T> =
+    DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>;
+
 pub struct OpticalBarcodeCredentialType;
 
 impl RequiredType for OpticalBarcodeCredentialType {
