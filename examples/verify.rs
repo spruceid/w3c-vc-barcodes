@@ -4,24 +4,28 @@ use w3c_vc_barcodes::{
     MachineReadableZone, MRZ,
 };
 
-const DATA: MRZ = [
+/// Machine Readable Zone on the card.
+const MRZ_DATA: MRZ = [
     *b"IAUTO0000007010SRC0000000701<<",
     *b"8804192M2601058NOT<<<<<<<<<<<5",
     *b"SMITH<<JOHN<<<<<<<<<<<<<<<<<<<",
 ];
 
-const INPUT_HEX: &str = "d90664a50183198000198001198002189d82187618a418baa1189c18a218be18ae18c0a5189c186c18d20418dc18e218de58417a9ec7f688f60caa8c757592250b3f6d6e18419941f186e1ed4245770e687502d51d01cd2c2295e4338178a51a35c2f044a85598e15db9aef00261bc5c95a744e718e018b0";
+/// QR-code payload.
+const QR_CODE_PAYLOAD: &str = "VC1-RSJRPWCQ803A3P0098G1534KG$-ENXK$EM053653O53QJGZKE$9FQ$DTVD7*5$KEW:5ZQE%$E3JE34N053.33.536KGB:CM/6C73D96*CP963F63B6337B5NFBUJA 0PG9ZA4E*6*/5G0P.74+6FFHN+AFHNUWXUDN3$R46CHZJOE5NH F6UFXFPCZ10L05:8NJQJMOXSEXAKHPISA5*O6M1DF5RE73T70/L4%O4J/66QOFMFPCU.270X1X$L6HBOC81 LVMQ.$M:8U6FDX*I1Z7I6B:8GRC0%53*9EC$ILQGUVS94NQ8OQZ0BYF8NE29LAMM1SS50G5-B03";
 
 #[async_std::main]
 async fn main() {
-    let input = hex::decode(INPUT_HEX).unwrap();
+    // First we decode the QR-code payload to get the VCB in CBOR-LD form.
+    let input = MachineReadableZone::decode_qr_code_payload(QR_CODE_PAYLOAD).unwrap();
+
+    // Then we decompress the CBOR-LD VCB to get a regular JSON-LD VCB.
     let vc = decode_from_bytes::<MachineReadableZone>(&input)
         .await
         .unwrap();
 
+    // Finally we verify the VCB against the MRZ data.
     let params = VerificationParameters::new(AnyDidMethod::default().into_vm_resolver());
-
-    let result = verify(&vc, &DATA, params).await.unwrap();
-
+    let result = verify(&vc, &MRZ_DATA, params).await.unwrap();
     assert!(result.is_ok());
 }

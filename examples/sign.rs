@@ -11,7 +11,8 @@ use w3c_vc_barcodes::{
     MachineReadableZone, MRZ,
 };
 
-const DATA: MRZ = [
+/// Machine Readable Zone on the card.
+const MRZ_DATA: MRZ = [
     *b"IAUTO0000007010SRC0000000701<<",
     *b"8804192M2601058NOT<<<<<<<<<<<5",
     *b"SMITH<<JOHN<<<<<<<<<<<<<<<<<<<",
@@ -30,8 +31,9 @@ async fn main() {
         None,
     );
 
+    // Issue a JSON-LD VCB for the MRZ data.
     let vc = w3c_vc_barcodes::create(
-        &DATA,
+        &MRZ_DATA,
         uri!("http://example.org/issuer").to_owned(),
         MachineReadableZone {},
         options,
@@ -40,10 +42,16 @@ async fn main() {
     .await
     .unwrap();
 
+    // Compress the VCB using CBOR-LD.
     let bytes = encode_to_bytes(&vc).await;
     eprintln!("payload ({} bytes): {}", bytes.len(), hex::encode(&bytes));
 
+    // Encode the QR-code payload and generate the QR-code.
     let qr_code = QrCode::new(MachineReadableZone::encode_qr_code_payload(&bytes)).unwrap();
+    eprintln!(
+        "QR-payload: {}",
+        MachineReadableZone::encode_qr_code_payload(&bytes)
+    );
     let image = qr_code
         .render::<unicode::Dense1x2>()
         .dark_color(unicode::Dense1x2::Light)
