@@ -7,7 +7,7 @@ use crate::{
     OpticalBarcodeCredential,
 };
 
-fn encode_options() -> EncodeOptions<'static> {
+fn encode_options() -> EncodeOptions {
     EncodeOptions {
         compression_mode: CompressionMode::Compressed(RegistryEntry::VcBarcodes),
         ..Default::default()
