@@ -13,10 +13,7 @@ use crate::{
     DateTime, Utc,
 };
 
-use super::{
-    change_xi_lifetime_ref, OpticalBarcodeCredential, OpticalBarcodeCredentialSubject,
-    CONTEXT_LOADER,
-};
+use super::{OpticalBarcodeCredential, OpticalBarcodeCredentialSubject, CONTEXT_LOADER};
 
 /// Optical barcode credential verification parameters.
 pub struct VerificationParameters<R, C = NoTerseStatusListProvider> {
@@ -45,8 +42,8 @@ impl<R, C> VerificationParameters<R, C> {
     }
 }
 
-pub async fn verify<'a, T, R, C>(
-    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
+pub async fn verify<T, R, C>(
+    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>,
     extra_information: &T::ExtraInformation,
     params: VerificationParameters<R, C>,
 ) -> Result<Verification, ProofValidationError>
@@ -63,9 +60,9 @@ where
     verify_from_optical_data(vc, &optical_data, params).await
 }
 
-pub async fn verify_from_optical_data<'a, 'b, T, R, C>(
-    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>>,
-    optical_data: &'a [u8],
+pub async fn verify_from_optical_data<T, R, C>(
+    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>,
+    optical_data: impl Into<Vec<u8>>,
     params: VerificationParameters<R, C>,
 ) -> Result<Verification, ProofValidationError>
 where
@@ -73,9 +70,6 @@ where
     R: VerificationMethodResolver<Method = Multikey>,
     C: TerseStatusListProvider,
 {
-    let vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>> =
-        change_xi_lifetime_ref(vc);
-
     for terse_entry in &vc.credential_status {
         let client = params
             .status_list_client
@@ -108,7 +102,7 @@ where
     }
 
     let params = XiVerificationParameters::new(
-        optical_data,
+        optical_data.into(),
         ssi::claims::VerificationParameters {
             resolver: params.resolver,
             json_ld_loader: &*CONTEXT_LOADER,
@@ -120,13 +114,13 @@ where
     vc.verify(params).await
 }
 
-struct XiVerificationParameters<'a, P> {
-    extra_information: ExtraInformation<'a>,
+struct XiVerificationParameters<P> {
+    extra_information: ExtraInformation,
     params: P,
 }
 
-impl<'a, P> XiVerificationParameters<'a, P> {
-    fn new(extra_information: &'a [u8], params: P) -> Self {
+impl<P> XiVerificationParameters<P> {
+    fn new(extra_information: Vec<u8>, params: P) -> Self {
         Self {
             extra_information: ExtraInformation(extra_information),
             params,
@@ -134,7 +128,7 @@ impl<'a, P> XiVerificationParameters<'a, P> {
     }
 }
 
-impl<'a, P: DateTimeProvider> DateTimeProvider for XiVerificationParameters<'a, P> {
+impl<P: DateTimeProvider> DateTimeProvider for XiVerificationParameters<P> {
     fn date_time(
         &self,
     ) -> ssi::claims::chrono::prelude::DateTime<ssi::claims::chrono::prelude::Utc> {
@@ -142,7 +136,7 @@ impl<'a, P: DateTimeProvider> DateTimeProvider for XiVerificationParameters<'a, 
     }
 }
 
-impl<'a, P: ResolverProvider> ResolverProvider for XiVerificationParameters<'a, P> {
+impl<P: ResolverProvider> ResolverProvider for XiVerificationParameters<P> {
     type Resolver = P::Resolver;
 
     fn resolver(&self) -> &Self::Resolver {
@@ -150,7 +144,7 @@ impl<'a, P: ResolverProvider> ResolverProvider for XiVerificationParameters<'a, 
     }
 }
 
-impl<'a, P: JsonLdLoaderProvider> JsonLdLoaderProvider for XiVerificationParameters<'a, P> {
+impl<P: JsonLdLoaderProvider> JsonLdLoaderProvider for XiVerificationParameters<P> {
     type Loader = P::Loader;
 
     fn loader(&self) -> &Self::Loader {
@@ -158,8 +152,35 @@ impl<'a, P: JsonLdLoaderProvider> JsonLdLoaderProvider for XiVerificationParamet
     }
 }
 
-impl<'a, P> ResourceProvider<ExtraInformation<'a>> for XiVerificationParameters<'a, P> {
-    fn get_resource(&self) -> &ExtraInformation<'a> {
+impl<P> ResourceProvider<ExtraInformation> for XiVerificationParameters<P> {
+    fn get_resource(&self) -> &ExtraInformation {
         &self.extra_information
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ssi::dids::{AnyDidMethod, DIDResolver};
+
+    use crate::{optical_barcode_credential::decode_from_bytes, verify, MachineReadableZone, MRZ};
+
+    fn assert_send(_: impl Send) {}
+
+    const MRZ_DATA: MRZ = [
+        *b"IAUTO0000007010SRC0000000701<<",
+        *b"8804192M2601058NOT<<<<<<<<<<<5",
+        *b"SMITH<<JOHN<<<<<<<<<<<<<<<<<<<",
+    ];
+
+    const QR_CODE_PAYLOAD: &str = "VC1-RSJRPWCQ803A3P0098G1534KG$-ENXK$EM053653O53QJGZKE$9FQ$DTVD7*5$KEW:5ZQE%$E3JE34N053.33.536KGB:CM/6C73D96*CP963F63B6337B5NFBUJA 0PG9ZA4E*6*/5G0P.74+6FFHN+AFHNUWXUDN3$R46CHZJOE5NH F6UFXFPCZ10L05:8NJQJMOXSEXAKHPISA5*O6M1DF5RE73T70/L4%O4J/66QOFMFPCU.270X1X$L6HBOC81 LVMQ.$M:8U6FDX*I1Z7I6B:8GRC0%53*9EC$ILQGUVS94NQ8OQZ0BYF8NE29LAMM1SS50G5-B03";
+
+    #[async_std::test]
+    async fn verify_is_send() {
+        let input = MachineReadableZone::decode_qr_code_payload(QR_CODE_PAYLOAD).unwrap();
+        let vc = decode_from_bytes::<MachineReadableZone>(&input)
+            .await
+            .unwrap();
+        let params = super::VerificationParameters::new(AnyDidMethod::default().into_vm_resolver());
+        assert_send(verify(&vc, &MRZ_DATA, params))
     }
 }

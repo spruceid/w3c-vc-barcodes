@@ -53,29 +53,3 @@ pub unsafe trait OpticalBarcodeCredentialSubject: Serialize + DeserializeOwned {
 
     fn create_optical_data(&self, xi: &Self::ExtraInformation) -> [u8; 32];
 }
-
-pub fn change_xi_lifetime<'a, 'b, T: OpticalBarcodeCredentialSubject>(
-    vc: DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
-) -> DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>> {
-    unsafe {
-        // SAFETY: the lifetime in `EcdsaXi2023` is completely unused,
-        //         it does not refer any data stored in `vc`.
-        std::mem::transmute::<
-            DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
-            DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>>,
-        >(vc)
-    }
-}
-
-pub fn change_xi_lifetime_ref<'r, 'a, 'b, T: OpticalBarcodeCredentialSubject>(
-    vc: &'r DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
-) -> &'r DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>> {
-    unsafe {
-        // SAFETY: the lifetime in `EcdsaXi2023` is completely unused,
-        //         it does not refer any data stored in `vc`.
-        std::mem::transmute::<
-            &'r DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
-            &'r DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'b [u8]>>,
-        >(vc)
-    }
-}

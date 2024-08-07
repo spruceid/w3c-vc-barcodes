@@ -15,9 +15,7 @@ use crate::{
     terse_bitstring_status_list_entry::TerseBitstringStatusListEntry,
 };
 
-use super::{
-    change_xi_lifetime, OpticalBarcodeCredential, OpticalBarcodeCredentialSubject, CONTEXT_LOADER,
-};
+use super::{OpticalBarcodeCredential, OpticalBarcodeCredentialSubject, CONTEXT_LOADER};
 
 /// Optical barcode credential signature parameters.
 pub struct SignatureParameters<R, S> {
@@ -100,7 +98,7 @@ where
 
 pub async fn sign_from_optical_data<T, R, S>(
     mut unsigned: OpticalBarcodeCredential<T>,
-    optical_data: &[u8],
+    optical_data: impl Into<Vec<u8>>,
     options: ProofOptions<ssi::verification_methods::Multikey, ()>,
     params: SignatureParameters<R, S>,
 ) -> Result<DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>, SignatureError>
@@ -120,18 +118,16 @@ where
         )
     }
 
-    let vc = EcdsaXi2023::<&[u8]>::default()
+    EcdsaXi2023
         .sign_with(
             XiSignatureEnvironment(&*CONTEXT_LOADER),
             unsigned,
             params.resolver,
             params.signer,
             options,
-            ExtraInformation(optical_data),
+            ExtraInformation(optical_data.into()),
         )
-        .await?;
-
-    Ok(change_xi_lifetime(vc))
+        .await
 }
 
 struct XiSignatureEnvironment<'a, L>(&'a L);
@@ -147,4 +143,49 @@ impl<'a, L: ssi::json_ld::Loader> JsonLdLoaderProvider for XiSignatureEnvironmen
 pub struct Status {
     entry: BitstringStatusListEntry,
     list_len: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use ssi::{
+        claims::data_integrity::ProofOptions,
+        dids::{AnyDidMethod, DIDKey, DIDResolver},
+        verification_methods::SingleSecretSigner,
+        JWK,
+    };
+    use static_iref::uri;
+
+    use crate::{create, MachineReadableZone, MRZ};
+
+    use super::SignatureParameters;
+
+    fn assert_send(_: impl Send) {}
+
+    const MRZ_DATA: MRZ = [
+        *b"IAUTO0000007010SRC0000000701<<",
+        *b"8804192M2601058NOT<<<<<<<<<<<5",
+        *b"SMITH<<JOHN<<<<<<<<<<<<<<<<<<<",
+    ];
+
+    #[async_std::test]
+    async fn create_is_send() {
+        let jwk = JWK::generate_p256();
+
+        let vm = DIDKey::generate_url(&jwk).unwrap();
+        let options = ProofOptions::from_method(vm.into_iri().into());
+
+        let params = SignatureParameters::new(
+            AnyDidMethod::default().into_vm_resolver(),
+            SingleSecretSigner::new(jwk),
+            None,
+        );
+
+        assert_send(create(
+            &MRZ_DATA,
+            uri!("http://example.org/issuer").to_owned(),
+            MachineReadableZone {},
+            options,
+            params,
+        ))
+    }
 }

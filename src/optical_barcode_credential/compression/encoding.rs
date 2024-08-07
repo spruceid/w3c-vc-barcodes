@@ -14,8 +14,8 @@ fn encode_options() -> EncodeOptions {
     }
 }
 
-pub async fn encode<'a, T>(
-    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
+pub async fn encode<T>(
+    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>,
 ) -> cbor_ld::CborValue
 where
     T: OpticalBarcodeCredentialSubject,
@@ -26,8 +26,8 @@ where
         .unwrap()
 }
 
-pub async fn encode_to_bytes<'a, T>(
-    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023<&'a [u8]>>,
+pub async fn encode_to_bytes<T>(
+    vc: &DataIntegrity<OpticalBarcodeCredential<T>, EcdsaXi2023>,
 ) -> Vec<u8>
 where
     T: OpticalBarcodeCredentialSubject,
