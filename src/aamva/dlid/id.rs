@@ -32,6 +32,7 @@ pub struct IdSubfile {
 }
 
 impl IdSubfile {
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         IdMandatoryElement::COUNT + self.optional.len()
     }
@@ -60,7 +61,7 @@ impl DecodeSubfile for IdSubfile {
         loop {
             let (entry, last) = RecordEntry::decode(reader)?;
 
-            match IdElement::from_id(&entry.field).ok_or_else(|| io::ErrorKind::InvalidData)? {
+            match IdElement::from_id(&entry.field).ok_or(io::ErrorKind::InvalidData)? {
                 IdElement::Mandatory(e) => mandatory.set(e, entry.value),
                 IdElement::Optional(e) => {
                     optional.set(e, Some(entry.value));

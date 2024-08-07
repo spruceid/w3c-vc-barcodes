@@ -113,7 +113,7 @@ impl ProtectedComponentIndex {
             })
     }
 
-    pub fn to_optical_data_bytes<'a>(&self, elements: &DlMandatoryElements) -> [u8; 32] {
+    pub fn to_optical_data_bytes(&self, elements: &DlMandatoryElements) -> [u8; 32] {
         let mut data_to_canonicalize = Vec::new();
 
         for field in self.iter() {

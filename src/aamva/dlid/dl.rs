@@ -41,6 +41,7 @@ impl DlSubfile {
         }
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         DlMandatoryElement::COUNT + self.optional.len()
     }
@@ -64,6 +65,7 @@ impl DlSubfile {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct DlSubfileBuilder {
     mandatory: DlMandatoryElementsBuilder,
     optional: DlOptionalElements,
@@ -71,10 +73,7 @@ pub struct DlSubfileBuilder {
 
 impl DlSubfileBuilder {
     pub fn new() -> Self {
-        Self {
-            mandatory: DlMandatoryElementsBuilder::new(),
-            optional: DlOptionalElements::new(),
-        }
+        Self::default()
     }
 
     pub fn set(&mut self, element: DlElement, value: Vec<u8>) {
@@ -102,8 +101,7 @@ impl DecodeSubfile for DlSubfile {
 
         loop {
             let (entry, last) = RecordEntry::decode(reader)?;
-            let element =
-                DlElement::from_id(&entry.field).ok_or_else(|| io::ErrorKind::InvalidData)?;
+            let element = DlElement::from_id(&entry.field).ok_or(io::ErrorKind::InvalidData)?;
             builder.set(element, entry.value);
 
             if last {

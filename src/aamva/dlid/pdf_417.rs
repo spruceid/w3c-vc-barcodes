@@ -273,7 +273,7 @@ pub(crate) fn write_array<const N: usize>(
 }
 
 fn decode_digit(d: u8) -> io::Result<u8> {
-    if (b'0'..=b'9').contains(&d) {
+    if d.is_ascii_digit() {
         Ok(d - b'0')
     } else {
         Err(io::ErrorKind::InvalidData.into())
