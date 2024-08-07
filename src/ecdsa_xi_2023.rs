@@ -22,28 +22,25 @@ use ssi::{
     rdf::{AnyLdEnvironment, LdEnvironment},
     verification_methods::{multikey, Multikey},
 };
-use std::marker::PhantomData;
 
 /// The `ecdsa-xi-2023` cryptosuite.
 ///
 /// See: <https://w3c-ccg.github.io/vc-barcodes/#ecdsa-xi-2023>
 #[derive(Debug, Default, Clone, Copy)]
-pub struct EcdsaXi2023<X = &'static [u8]>(PhantomData<X>);
+pub struct EcdsaXi2023;
 
-impl<X> TryFrom<Type> for EcdsaXi2023<X> {
+impl TryFrom<Type> for EcdsaXi2023 {
     type Error = UnsupportedProofSuite;
 
     fn try_from(value: Type) -> Result<Self, Self::Error> {
         match value {
-            Type::DataIntegrityProof(cryptosuite) if cryptosuite == "ecdsa-xi-2023" => {
-                Ok(Self(PhantomData))
-            }
+            Type::DataIntegrityProof(cryptosuite) if cryptosuite == "ecdsa-xi-2023" => Ok(Self),
             other => Err(UnsupportedProofSuite::Compact(other)),
         }
     }
 }
 
-impl<'a> StandardCryptographicSuite for EcdsaXi2023<&'a [u8]> {
+impl StandardCryptographicSuite for EcdsaXi2023 {
     type Configuration = EcdsaXi2023ConfigurationAlgorithm;
 
     type Transformation = EcdsaXi2023TransformationAlgorithm;
@@ -61,54 +58,47 @@ impl<'a> StandardCryptographicSuite for EcdsaXi2023<&'a [u8]> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ExtraInformation<'a>(pub &'a [u8]);
+#[derive(Debug, Clone)]
+pub struct ExtraInformation(pub Vec<u8>);
 
 pub struct EcdsaXi2023ConfigurationAlgorithm;
 
-impl<'a> ConfigurationAlgorithm<EcdsaXi2023<&'a [u8]>> for EcdsaXi2023ConfigurationAlgorithm {
+impl ConfigurationAlgorithm<EcdsaXi2023> for EcdsaXi2023ConfigurationAlgorithm {
     type InputVerificationMethod = Multikey;
     type InputSuiteOptions = ();
-    type InputSignatureOptions = ExtraInformation<'a>;
-    type InputVerificationOptions = ExtraInformation<'a>;
-    type TransformationOptions = ExtraInformation<'a>;
+    type InputSignatureOptions = ExtraInformation;
+    type InputVerificationOptions = ExtraInformation;
+    type TransformationOptions = ExtraInformation;
 
     fn configure_signature(
-        suite: &EcdsaXi2023<&'a [u8]>,
+        suite: &EcdsaXi2023,
         proof_options: ProofOptions<Multikey, ()>,
-        signature_options: ExtraInformation<'a>,
-    ) -> Result<
-        (
-            ProofConfiguration<EcdsaXi2023<&'a [u8]>>,
-            ExtraInformation<'a>,
-        ),
-        ConfigurationError,
-    > {
+        signature_options: ExtraInformation,
+    ) -> Result<(ProofConfiguration<EcdsaXi2023>, ExtraInformation), ConfigurationError> {
         let configuration = proof_options.into_configuration(*suite)?;
         Ok((configuration, signature_options))
     }
 
     fn configure_verification(
-        _suite: &EcdsaXi2023<&'a [u8]>,
-        verification_options: &ExtraInformation<'a>,
-    ) -> Result<ExtraInformation<'a>, ConfigurationError> {
-        Ok(*verification_options)
+        _suite: &EcdsaXi2023,
+        verification_options: &ExtraInformation,
+    ) -> Result<ExtraInformation, ConfigurationError> {
+        Ok(verification_options.clone())
     }
 }
 
-pub struct WithExtraInformation<'a, T> {
+pub struct WithExtraInformation<T> {
     data: T,
-    extra_information: &'a [u8],
+    extra_information: Vec<u8>,
 }
 
 pub struct EcdsaXi2023TransformationAlgorithm;
 
-impl<'a> TransformationAlgorithm<EcdsaXi2023<&'a [u8]>> for EcdsaXi2023TransformationAlgorithm {
-    type Output = WithExtraInformation<'a, CanonicalClaimsAndConfiguration>;
+impl TransformationAlgorithm<EcdsaXi2023> for EcdsaXi2023TransformationAlgorithm {
+    type Output = WithExtraInformation<CanonicalClaimsAndConfiguration>;
 }
 
-impl<'a, T, C> TypedTransformationAlgorithm<EcdsaXi2023<&'a [u8]>, T, C>
-    for EcdsaXi2023TransformationAlgorithm
+impl<T, C> TypedTransformationAlgorithm<EcdsaXi2023, T, C> for EcdsaXi2023TransformationAlgorithm
 where
     T: JsonLdNodeObject + Expandable,
     C: JsonLdLoaderProvider,
@@ -116,9 +106,9 @@ where
     async fn transform(
         context: &C,
         data: &T,
-        proof_configuration: ProofConfigurationRef<'_, EcdsaXi2023<&'a [u8]>>,
+        proof_configuration: ProofConfigurationRef<'_, EcdsaXi2023>,
         _verification_method: &Multikey,
-        transformation_options: ExtraInformation<'a>,
+        transformation_options: ExtraInformation,
     ) -> Result<Self::Output, TransformationError> {
         let mut ld = LdEnvironment::default();
 
@@ -145,12 +135,12 @@ where
 
 pub struct EcdsaXi2023HashingAlgorithm;
 
-impl<'a> HashingAlgorithm<EcdsaXi2023<&'a [u8]>> for EcdsaXi2023HashingAlgorithm {
+impl HashingAlgorithm<EcdsaXi2023> for EcdsaXi2023HashingAlgorithm {
     type Output = EcdsaXi2023Hash;
 
     fn hash(
         input: WithExtraInformation<CanonicalClaimsAndConfiguration>,
-        _proof_configuration: ProofConfigurationRef<EcdsaXi2023<&'a [u8]>>,
+        _proof_configuration: ProofConfigurationRef<EcdsaXi2023>,
         verification_method: &Multikey,
     ) -> Result<Self::Output, HashingError> {
         match verification_method
