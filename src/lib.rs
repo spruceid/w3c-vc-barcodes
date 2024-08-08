@@ -2,7 +2,7 @@
 //! based on ssi.
 //!
 //! [vc-barcodes]: <https://w3c-ccg.github.io/vc-barcodes/>
-//! 
+//!
 //! The `examples` folder contains a few examples showing how to create and
 //! verify VCBs.
 pub use ssi::claims::chrono::{DateTime, Utc};
