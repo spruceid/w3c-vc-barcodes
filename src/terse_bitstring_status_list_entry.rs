@@ -6,6 +6,7 @@ use ssi::{
     status::{
         bitstring_status_list::{
             BitstringStatusListCredential, BitstringStatusListEntry, StatusList, StatusPurpose,
+            StatusSize,
         },
         client::{MaybeCached, TypedStatusMapProvider},
     },
@@ -99,9 +100,18 @@ impl TerseBitstringStatusListEntry {
         )
         .unwrap();
 
+        // TODO: determine status size based on info.list_len ?
+        let status_size = StatusSize::default();
+
+        // TODO: populate status messages, may need to update the `StatusListInfo` to include
+        // any messages.
+        let status_messages = Vec::new();
+
         BitstringStatusListEntry::new(
             None,
+            status_size,
             info.status_purpose,
+            status_messages,
             status_list_credential,
             status_list_index,
         )
@@ -155,7 +165,7 @@ pub trait TerseStatusListProvider {
         terse_entry: &TerseBitstringStatusListEntry,
     ) -> Result<(StatusPurpose, Option<u8>), ssi::status::client::ProviderError> {
         let (list, entry) = self.get(terse_entry).await?;
-        let status = list.get(entry.status_list_index);
+        let status = list.get(entry.status_size, entry.status_list_index);
         Ok((entry.status_purpose, status))
     }
 }
