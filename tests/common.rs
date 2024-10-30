@@ -46,7 +46,6 @@ impl TypedStatusMapProvider<Uri, BitstringStatusListCredential> for StatusLists 
     async fn get_typed(&self, id: &Uri) -> Result<MaybeCached<StatusList>, ProviderError> {
         eprintln!("fetch <{id}>");
         Ok(MaybeCached::NotCached(StatusList::from_bytes(
-            1.try_into().unwrap(),
             vec![0u8; 125],
             TimeToLive::DEFAULT,
         )))
