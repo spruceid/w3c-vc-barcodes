@@ -6,7 +6,7 @@ use ssi::{
         JsonLdLoaderProvider, SignatureError,
     },
     crypto::algorithm::ES256OrES384,
-    status::bitstring_status_list::BitstringStatusListEntry,
+    status::bitstring_status_list_20240406::BitstringStatusListEntry,
     verification_methods::{MessageSigner, Multikey, Signer, VerificationMethodResolver},
 };
 
