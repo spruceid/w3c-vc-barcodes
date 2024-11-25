@@ -3,7 +3,7 @@ use ssi::{
         data_integrity::DataIntegrity, DateTimeProvider, JsonLdLoaderProvider,
         ProofValidationError, ResolverProvider, ResourceProvider, Verification,
     },
-    status::bitstring_status_list::StatusPurpose,
+    status::bitstring_status_list_20240406::StatusPurpose,
     verification_methods::{Multikey, VerificationMethodResolver},
 };
 
