@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use ssi::{
     claims::vc::{MaybeIdentified, Typed},
     status::{
-        bitstring_status_list::{
+        bitstring_status_list_20240406::{
             BitstringStatusListCredential, BitstringStatusListEntry, StatusList, StatusPurpose,
         },
         client::{MaybeCached, TypedStatusMapProvider},
