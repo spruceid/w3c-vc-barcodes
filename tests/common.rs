@@ -5,7 +5,7 @@ use json_syntax::Parse;
 use ssi::{
     claims::data_integrity::{DataIntegrity, ProofConfiguration},
     status::{
-        bitstring_status_list::{BitstringStatusListCredential, StatusList, TimeToLive},
+        bitstring_status_list_20240406::{BitstringStatusListCredential, StatusList, TimeToLive},
         client::{MaybeCached, ProviderError, TypedStatusMapProvider},
     },
 };
