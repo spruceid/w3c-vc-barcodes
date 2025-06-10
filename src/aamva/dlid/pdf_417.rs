@@ -115,7 +115,7 @@ impl<'a, R: BufRead> File<'a, R> {
     }
 }
 
-impl<'a, R: BufRead + Seek> File<'a, R> {
+impl<R: BufRead + Seek> File<'_, R> {
     pub fn read_subfile<D: DecodeSubfile>(
         &mut self,
         subfile_type: &[u8; 2],

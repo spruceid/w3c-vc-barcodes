@@ -76,7 +76,7 @@ where
     sign_from_optical_data(unsigned, optical_data, options, params).await
 }
 
-pub async fn sign<'a, T, R, S>(
+pub async fn sign<T, R, S>(
     unsigned: OpticalBarcodeCredential<T>,
     extra_information: &T::ExtraInformation,
     options: ProofOptions<ssi::verification_methods::Multikey, ()>,
@@ -132,7 +132,7 @@ where
 
 struct XiSignatureEnvironment<'a, L>(&'a L);
 
-impl<'a, L: ssi::json_ld::Loader> JsonLdLoaderProvider for XiSignatureEnvironment<'a, L> {
+impl<L: ssi::json_ld::Loader> JsonLdLoaderProvider for XiSignatureEnvironment<'_, L> {
     type Loader = L;
 
     fn loader(&self) -> &Self::Loader {
