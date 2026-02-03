@@ -53,7 +53,7 @@ impl StandardCryptographicSuite for EcdsaXi2023 {
 
     type ProofOptions = ();
 
-    fn type_(&self) -> TypeRef {
+    fn type_(&self) -> TypeRef<'_> {
         TypeRef::DataIntegrityProof(CryptosuiteStr::new("ecdsa-xi-2023").unwrap())
     }
 }
