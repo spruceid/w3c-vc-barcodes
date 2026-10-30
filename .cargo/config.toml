@@ -1,0 +1,5 @@
+# Resolve dependencies to versions that support the crate's `rust-version`
+# (MSRV), so the CI test job on the MSRV doesn't pick up releases that need a
+# newer compiler. Cargo >= 1.84 reads this setting.
+[resolver]
+incompatible-rust-versions = "fallback"
