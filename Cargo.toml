@@ -19,7 +19,6 @@ ssi = { version = "0.16", features = ["secp256r1", "secp384r1"] }
 json-syntax = "0.12.5"
 cbor-ld = { git = "https://github.com/spruceid/cbor-ld.git", rev = "18b8219" }
 thiserror = "2.0"
-csv = "1.3.0"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }

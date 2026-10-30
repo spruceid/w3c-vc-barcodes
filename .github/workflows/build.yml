@@ -44,7 +44,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-features -- -D warnings
+      - name: Unused dependencies
+        run: cargo machete
+      - name: Check dependencies licences are compatible
+        run: cargo deny check licenses
