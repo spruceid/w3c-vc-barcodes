@@ -22,13 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Retrieve MSRV
-        id: msrv
-        run: echo "MSRV=$(cat Cargo.toml | grep -Po '(?<=rust-version = ")([\d\.]+)')" >> $GITHUB_OUTPUT
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.msrv.outputs.MSRV }}
+        uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build --all-features --verbose
       - name: Run tests
